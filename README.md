@@ -1,6 +1,6 @@
 # zettaialarm222
 
-alarmapp
+flutterを使ったアラームアプリです。
 
 ## Getting Started
 
