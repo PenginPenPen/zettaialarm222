@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:zettaialarm222/alarmpage.dart';
 import 'package:zettaialarm222/settingpage.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 void main() {
   runApp(const MyApp());
   initializeDateFormatting('ja');
@@ -10,7 +12,7 @@ void main() {
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
-  
+
   @override
   _MyAppState createState() => _MyAppState();
 }
@@ -18,7 +20,6 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late DateTime nowTime;
   late Timer timer;
-  
 
   @override
   void initState() {
@@ -58,7 +59,7 @@ class Home extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('現在時刻'),
+        title: (Text('現在時刻')),
       ),
       body: Center(
         child: Column(
@@ -77,6 +78,7 @@ class Home extends StatelessWidget {
                 if(timeOfDay != null){
                   selectedtime=timeOfDay; //selectedtimeに時間を設定
                   print('設定した時間${selectedtime}');
+                  // AndroidAlarmManager.oneShotAt(selectedtime, id, callback)
                 }
               },
               icon: Icon(Icons.add),
@@ -86,9 +88,9 @@ class Home extends StatelessWidget {
             IconButton(onPressed: (){
               Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SettingPage()),
+                  MaterialPageRoute(builder: (context) => AlarmPage()),
                 );
-            }, icon: Icon(Icons.settings))
+            }, icon: Icon(Icons.alarm))
           ],
         ),
       ),

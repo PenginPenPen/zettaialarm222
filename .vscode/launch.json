@@ -1,0 +1,46 @@
+{
+    // IntelliSense を使用して利用可能な属性を学べます。
+    // 既存の属性の説明をホバーして表示します。
+    // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+    
+        {
+            "name": "zettaialarm222",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "zettaialarm222 (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "zettaialarm222 (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "flutter_alarm_clock",
+            "cwd": "flutter_alarm_clock",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "flutter_alarm_clock (profile mode)",
+            "cwd": "flutter_alarm_clock",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "flutter_alarm_clock (release mode)",
+            "cwd": "flutter_alarm_clock",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
