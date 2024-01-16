@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:zettaialarm222/alarmpage.dart';
-import 'package:zettaialarm222/settingpage.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+
 void main() {
   runApp(const MyApp());
   initializeDateFormatting('ja');
