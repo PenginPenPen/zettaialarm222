@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:zettaialarm222/alarmpage.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
 void main() {
   runApp(const MyApp());
@@ -50,10 +51,15 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
+  void onAlarm() async {
+    print('アラーム発生！');
+  }
+
 class Home extends StatelessWidget {
   final DateTime nowTime;
   Home({required this.nowTime, Key? key}) : super(key: key);
   TimeOfDay selectedtime= TimeOfDay.now();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,7 +83,22 @@ class Home extends StatelessWidget {
                 if(timeOfDay != null){
                   selectedtime=timeOfDay; //selectedtimeに時間を設定
                   print('設定した時間${selectedtime}');
-                  // AndroidAlarmManager.oneShotAt(selectedtime, id, callback)
+                  final now = DateTime.now();
+                  final scheduledTime = DateTime(now.year, now.month, now.day, selectedtime.hour, selectedtime.minute);
+                  final int id = 1;
+
+                  await AndroidAlarmManager.initialize();
+                  await AndroidAlarmManager.oneShotAt(
+                    scheduledTime,
+                    id,
+                    onAlarm,
+                    alarmClock: true,
+                    allowWhileIdle: true,
+                    wakeup: true,
+                    exact: true,
+                  );
+
+
                 }
               },
               icon: Icon(Icons.add),
