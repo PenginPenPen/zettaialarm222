@@ -9,20 +9,26 @@ import 'package:just_audio/just_audio.dart';
 import 'package:zettaialarm222/alarmpage.dart';
 
 final player = AudioPlayer();
+final FlutterLocalNotificationsPlugin notificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 void main() async {
-  final FlutterLocalNotificationsPlugin notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ja');
-  loadAudio();
+  await loadAudio();
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+  flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
   runApp(const MyApp());
 }
 
 Future<void> loadAudio() async {
-  await player.setAsset('assets/audio/outro.mp3');
-  debugPrint('音声ファイル読み込み完了');
+  try {
+    await player.setAsset('assets/audio/test_audio.mp3');
+  } catch (e) {
+    debugPrint('音声ファイルの読み込みに失敗しました: $e');
+  }
 }
 
 Future<void> playAlarm() async {
@@ -32,14 +38,9 @@ Future<void> playAlarm() async {
   await player.play();
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -63,8 +64,7 @@ class _HomeState extends State<Home> {
   late DateTime nowTime;
   late Timer timer;
   late TimeOfDay selectedTime;
-  final FlutterLocalNotificationsPlugin flnp = FlutterLocalNotificationsPlugin();
-  bool alarm_running = false;
+  bool alarmRunning = false;
 
   @override
   void initState() {
@@ -77,75 +77,23 @@ class _HomeState extends State<Home> {
         AndroidInitializationSettings('logo');
     final InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
-    flnp.initialize(initializationSettings);
-    initializeDateFormatting('ja');
+    notificationsPlugin.initialize(initializationSettings);
   }
 
   void _updateTime(Timer timer) {
     setState(() {
       nowTime = DateTime.now();
-      debugPrint('毎秒$alarm_running');
-      if (alarm_running) {
+      debugPrint('アラームステータス$alarmRunning');
+      if (alarmRunning) {
         debugPrint('アラーム作動中');
       }
     });
   }
 
-  Future<void> _showNotification() async {
-    debugPrint('通知');
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'alarm_channel_id',
-      'alarm_channel_name',
-      importance: Importance.max,
-      priority: Priority.high,
-      channelShowBadge: true,
-    );
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-
-    // flutterLocalNotificationsPlugin の初期化
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    await flutterLocalNotificationsPlugin.show(
-      0, // 通知ID
-      'アラーム通知', // 通知タイトル
-      'アラームが作動しました', // 通知本文
-      platformChannelSpecifics,
-    );
-  }
-
-  void _onTimeSelected(TimeOfDay time) {
-
-    final now = DateTime.now();
-    final scheduledTime = DateTime(now.year, now.month, now.day, selectedTime.hour, selectedTime.minute);
-    final int id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    debugPrint('設定された時間$scheduledTime.String');
-    AndroidAlarmManager.oneShotAt(
-      scheduledTime,
-      id,
-      onAlarm,
-      alarmClock: true,
-      allowWhileIdle: true,
-      wakeup: true,
-      exact: true,
-    );
-  }
-  void onAlarm() async {
-    setState(() {
-      alarm_running = true;
-    });
-    debugPrint('アラーム作動');
-    await _showNotification();
-    playAlarm();
-    debugPrint('作動直後$alarm_running');
-  }
-
-
   @override
   void dispose() {
     timer.cancel();
+    player.dispose();
     super.dispose();
   }
 
@@ -183,7 +131,9 @@ class _HomeState extends State<Home> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AlarmPage()),
+                  MaterialPageRoute(
+                    builder: (context) => AlarmPage(alarmRunning: alarmRunning),
+                  ),
                 );
               },
             ),
@@ -192,4 +142,51 @@ class _HomeState extends State<Home> {
       ),
     );
   }
+
+  void _onTimeSelected(TimeOfDay time) async {
+    setState(() {
+      selectedTime = time;
+    });
+    final now = DateTime.now();
+    final scheduledTime = DateTime(
+      now.year, now.month, now.day, selectedTime.hour, selectedTime.minute);
+    final int id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await AndroidAlarmManager.oneShotAt(
+      scheduledTime,
+      id,
+      onAlarm,
+      alarmClock: true,
+      allowWhileIdle: true,
+      wakeup: true,
+      exact: true,
+    );
+  }
+}
+
+Future<void> showNotification() async {
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    'alarm_channel_id',
+    'alarm_channel_name',
+    importance: Importance.max,
+    priority: Priority.high,
+    channelShowBadge: true,
+  );
+  const NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  await notificationsPlugin.show(
+    0,
+    'アラーム通知',
+    'アラームが作動しました',
+    platformChannelSpecifics,
+  );
+}
+
+@pragma('vm:entry-point')
+void onAlarm() async {
+  debugPrint('アラーム作動');
+  await showNotification();
+  await playAlarm();
+  // bool alarm_running = true;
 }
