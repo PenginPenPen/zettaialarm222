@@ -6,6 +6,7 @@
         android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
+            android:name="com.ryanheise.audioservice.AudioServiceActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
@@ -30,6 +31,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+            <service android:name="com.ryanheise.audioservice.AudioService">
+                <intent-filter>
+                    <action android:name="android.media.browse.MediaBrowserService" />
+                </intent-filter>
+            </service>
+
+            <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver" >
+                <intent-filter>
+                    <action android:name="android.intent.action.MEDIA_BUTTON" />
+                </intent-filter>
+            </receiver>
             <service
                 android:name="dev.fluttercommunity.plus.androidalarmmanager.AlarmService"
                 android:permission="android.permission.BIND_JOB_SERVICE"
@@ -48,10 +60,13 @@
     </application>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <!-- For apps with targetSDK=31 (Android 12) -->
     <uses-permission android:name="android.permission.SET_ALARM"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+
 </manifest>
