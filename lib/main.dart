@@ -76,6 +76,7 @@ class _HomeState extends State<Home> {
   late TimeOfDay selectedTime;
   bool alarmRunning = false;
 
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +110,8 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
+      
       appBar: AppBar(
         title: const Text('現在時刻', style: TextStyle(color: Colors.white)),
       ),
@@ -117,11 +120,11 @@ class _HomeState extends State<Home> {
           children: [
             Text(
               DateFormat('HH:mm:ss').format(nowTime),
-              style: const TextStyle(fontSize: 50),
+              style: const TextStyle(fontSize: 50,color: Colors.white),
             ),
             Text(
               '選択された時間: ${selectedTime.format(context)}',
-              style: const TextStyle(fontSize: 20),
+              style: const TextStyle(fontSize: 20,color: Colors.white),
             ),
             IconButton(
               onPressed: () async {
@@ -133,7 +136,7 @@ class _HomeState extends State<Home> {
                   _onTimeSelected(newTime);
                 }
               },
-              icon: const Icon(Icons.alarm_add),
+              icon: const Icon(Icons.alarm_add ,color: Colors.white,),
             ),
 
 

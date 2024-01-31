@@ -4,11 +4,11 @@ import 'dart:convert';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:zettaialarm222/main.dart';
 
-final token = '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';
+const token = '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';
 
 Future<String> quizGeneration() async {
   debugPrint('クイズ生成');
-  final url = Uri.parse('https://api.openai.com/v1/engines/davinci/completions');
+  final url = Uri.parse('https://api.openai.com/v1/engines/gpt-3.5-turbo-instruct/completions');
   final headers = {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer $token'
@@ -23,10 +23,13 @@ Future<String> quizGeneration() async {
   });
 
   try {
+    debugPrint('通信開始');
     final response = await http.post(url, headers: headers, body: body);
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      return data['choices'][0]['text'].trim();
+      final generatedQuiz = data['choices'][0]['text'].trim();
+      debugPrint('生成されたクイズ: $generatedQuiz'); // Output the generated quiz
+      return generatedQuiz;
     } else {
       debugPrint('Error generating quiz: ${response.body}');
       return 'Error generating quiz.';
@@ -65,7 +68,19 @@ class AlarmPage extends StatelessWidget {
             onPressed: () {
               stopAlarm();
             },
-          )
+          ),
+          FutureBuilder<String>(
+            future: quizGeneration(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator(); // Show loading indicator while fetching quiz
+              } else if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              } else {
+                return Text(snapshot.data ?? ''); // Display fetched quiz
+              }
+            },
+          ),
         ],
       ),
     );
