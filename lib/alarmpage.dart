@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:zettaialarm222/main.dart';
 
-const token = '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';
+const token = 'API_KEY';
 
 Future<String> quizGeneration() async {
   debugPrint('クイズ生成');
