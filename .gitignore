@@ -1,3 +1,7 @@
+# Secrets - APIキーなどの機密情報は絶対にコミットしない
+.env
+*.env
+
 # Miscellaneous
 *.class
 *.log

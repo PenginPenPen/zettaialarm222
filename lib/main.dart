@@ -1,62 +1,42 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:intl/intl.dart';
+
+import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:intl/intl.dart';
 import 'package:zettaialarm222/alarmpage.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:audio_session/audio_session.dart';
+import 'package:zettaialarm222/services/alarm_service.dart';
+import 'package:zettaialarm222/settingpage.dart';
 
-final player = AudioPlayer();
-final FlutterLocalNotificationsPlugin notificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AndroidAlarmManager.initialize();
-  WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('ja');
-  await loadAudio();
-
-  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
-
+  try {
+    await initializeDateFormatting('ja');
+  } catch (_) {}
+  await AlarmService.instance.init();
   runApp(const MyApp());
 }
 
-
-Future<void> loadAudio() async {
-  try {
-    await player.setAsset('assets/audio/alarm1.wav');
-    debugPrint('音声ファイル読み込み成功');
-  } catch (e) {
-    debugPrint('音声ファイルの読み込みに失敗しました: $e');
-  }
-}
-
-Future<void> playAlarm() async {
-  if (player.processingState == ProcessingState.completed) {
-    await loadAudio();
-  }
-  await player.play();
-}
-
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF8B7CF6),
+      brightness: Brightness.dark,
+    );
     return MaterialApp(
-      title: 'zettaialarm',
+      title: '絶対アラーム',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        appBarTheme: const AppBarTheme(color: Color.fromARGB(255, 0, 0, 0)),
+        useMaterial3: true,
+        colorScheme: scheme,
+        scaffoldBackgroundColor: const Color(0xFF0E0E1A),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
       ),
       home: const Home(),
     );
@@ -64,160 +44,285 @@ class MyApp extends StatelessWidget {
 }
 
 class Home extends StatefulWidget {
-  const Home({Key? key}) : super(key: key);
+  const Home({super.key});
 
   @override
-  _HomeState createState() => _HomeState();
+  State<Home> createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> {
-  late DateTime nowTime;
-  late Timer timer;
-  late TimeOfDay selectedTime;
-  bool alarmRunning = false;
-
+  DateTime _now = DateTime.now();
+  DateTime? _scheduled;
+  Timer? _timer;
+  bool _onAlarmPage = false;
 
   @override
   void initState() {
     super.initState();
-    nowTime = DateTime.now();
-    selectedTime = TimeOfDay.now();
-    timer = Timer.periodic(const Duration(seconds: 1), _updateTime);
-
-    final AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('icon');
-    final InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    notificationsPlugin.initialize(initializationSettings);
-  }
-
-  void _updateTime(Timer timer) {
-    setState(() {
-      nowTime = DateTime.now();
-      if (alarmRunning) {
-        debugPrint('アラーム作動中');
-      }
-    });
+    _loadScheduled();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   @override
   void dispose() {
-    timer.cancel();
-    player.dispose();
+    _timer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadScheduled() async {
+    final t = await AlarmService.instance.scheduledTime;
+    if (mounted) setState(() => _scheduled = t);
+  }
+
+  Future<void> _tick() async {
+    if (mounted) setState(() => _now = DateTime.now());
+    if (_onAlarmPage) return;
+    bool ringing;
+    try {
+      ringing = await AlarmService.instance.checkAndStartRinging();
+    } catch (_) {
+      return;
+    }
+    if (ringing && mounted && !_onAlarmPage) {
+      _openAlarmPage();
+    }
+  }
+
+  Future<void> _openAlarmPage() async {
+    _onAlarmPage = true;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AlarmPage()),
+    );
+    _onAlarmPage = false;
+    await _loadScheduled();
+  }
+
+  Future<void> _pickTime() async {
+    final initial =
+        _scheduled != null ? TimeOfDay.fromDateTime(_scheduled!) : TimeOfDay.now();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      helpText: 'アラーム時刻を選択',
+    );
+    if (picked == null || !mounted) return;
+    final scheduled = await AlarmService.instance.schedule(picked);
+    if (!mounted) return;
+    setState(() => _scheduled = scheduled);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            '${_dateLabel(scheduled)} ${DateFormat('HH:mm').format(scheduled)} にセットしました'),
+      ),
+    );
+  }
+
+  Future<void> _cancelAlarm() async {
+    await AlarmService.instance.cancel();
+    if (!mounted) return;
+    setState(() => _scheduled = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('アラームを解除しました')),
+    );
+  }
+
+  Future<void> _testAlarm() async {
+    await AlarmService.instance.startTestRinging();
+    if (mounted) _openAlarmPage();
+  }
+
+  String _dateLabel(DateTime d) {
+    const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+    return '${d.month}月${d.day}日 (${weekdays[d.weekday - 1]})';
+  }
+
+  String _remainingLabel() {
+    if (_scheduled == null) return '';
+    final diff = _scheduled!.difference(_now);
+    if (diff.isNegative) return 'まもなく鳴ります';
+    final h = diff.inHours;
+    final m = diff.inMinutes % 60;
+    return h > 0 ? 'あと$h時間$m分' : 'あと$m分';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('現在時刻', style: TextStyle(color: Colors.white)),
+        title: const Text('絶対アラーム',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '設定',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SettingPage()),
+            ),
+          ),
+        ],
       ),
-      body: Center(
-        child: Column(
-          children: [
-            Text(
-              DateFormat('HH:mm:ss').format(nowTime),
-              style: const TextStyle(fontSize: 50,color: Colors.white),
-            ),
-            Text(
-              '選択された時間: ${selectedTime.format(context)}',
-              style: const TextStyle(fontSize: 20,color: Colors.white),
-            ),
-            IconButton(
-              onPressed: () async {
-                final TimeOfDay? newTime = await showTimePicker(
-                  context: context,
-                  initialTime: selectedTime,
-                );
-                if (newTime != null) {
-                  _onTimeSelected(newTime);
-                }
-              },
-              icon: const Icon(Icons.alarm_add ,color: Colors.white,),
-            ),
-
-
-            ElevatedButton(
-              child: const Text('画面遷移(デバッグ)'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AlarmPage(alarmRunning: alarmRunning),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1B1A33), Color(0xFF0E0E1A)],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              const Spacer(flex: 2),
+              Text(
+                _dateLabel(_now),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withOpacity(0.7),
+                  letterSpacing: 1,
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    DateFormat('HH:mm').format(_now),
+                    style: const TextStyle(
+                      fontSize: 84,
+                      fontWeight: FontWeight.w200,
+                      color: Colors.white,
+                      letterSpacing: 2,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
-                );
-              },
-            ),
-            ElevatedButton(
-              child: const Text('通知作動(デバッグ)'),
-              onPressed: () {
-                showNotification();
-              },
-            ),
-            ElevatedButton(
-              child: const Text('アラーム再生(デバッグ)'),
-              onPressed: () {
-                playAlarm();
-              },
-            ),
-
-          ],
+                  Text(
+                    DateFormat(':ss').format(_now),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w300,
+                      color: Colors.white.withOpacity(0.6),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              _alarmCard(context),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: FilledButton.icon(
+                  onPressed: _pickTime,
+                  icon: const Icon(Icons.alarm_add),
+                  label: Text(_scheduled == null ? 'アラームをセット' : '時刻を変更'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(56),
+                    textStyle: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18)),
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _testAlarm,
+                icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                label: const Text('アラームをテスト'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white.withOpacity(0.5),
+                ),
+              ),
+              const Spacer(flex: 2),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _onTimeSelected(TimeOfDay time) async {
-    setState(() {
-      selectedTime = time;
-    });
-    final now = DateTime.now();
-    final scheduledTime = DateTime(
-      now.year, now.month, now.day, selectedTime.hour, selectedTime.minute);
-    final int id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    debugPrint('アラームID:$id');
-    await AndroidAlarmManager.oneShotAt(
-      scheduledTime,
-      id,
-      onAlarm,
-      alarmClock: true,
-      allowWhileIdle: true,
-      wakeup: true,
-      exact: true,
+  Widget _alarmCard(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: _scheduled == null
+          ? Row(
+              children: [
+                Icon(Icons.alarm_off,
+                    color: Colors.white.withOpacity(0.4), size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'アラームは未設定です',
+                  style: TextStyle(
+                      fontSize: 16, color: Colors.white.withOpacity(0.6)),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.alarm, color: scheme.primary, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      '次のアラーム',
+                      style: TextStyle(
+                          fontSize: 14, color: Colors.white.withOpacity(0.7)),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      color: Colors.white.withOpacity(0.5),
+                      tooltip: 'アラームを解除',
+                      onPressed: _cancelAlarm,
+                    ),
+                  ],
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      DateFormat('HH:mm').format(_scheduled!),
+                      style: const TextStyle(
+                        fontSize: 44,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${_dateLabel(_scheduled!)}・${_remainingLabel()}',
+                      style: TextStyle(
+                          fontSize: 14, color: Colors.white.withOpacity(0.6)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.psychology_outlined,
+                        size: 18, color: scheme.tertiary),
+                    const SizedBox(width: 8),
+                    Text(
+                      '問題に正解するまで止まりません',
+                      style: TextStyle(
+                          fontSize: 13, color: Colors.white.withOpacity(0.7)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
-}
-
-Future<void> showNotification() async {
-  const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
-    'alarm_channel_id',
-    'alarm_channel_name',
-    importance: Importance.max,
-    priority: Priority.high,
-    channelShowBadge: true,
-  );
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
-
-  final int alarm_id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-  await notificationsPlugin.show(
-    alarm_id,
-    'アラーム通知$alarm_id',
-    'アラームが作動しました',
-    platformChannelSpecifics,
-  );
-  debugPrint('通知ID$alarm_id');
-}
-
-@pragma('vm:entry-point')
-void onAlarm() async {
-  debugPrint('アラーム作動');
-  await showNotification();
-  await playAlarm();
-  // bool alarm_running = true;
 }

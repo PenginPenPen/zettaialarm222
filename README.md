@@ -1,20 +1,33 @@
-# zettaialarm222
+# 絶対アラーム (zettaialarm222)
 
-flutterを使ったアラームアプリです。222ばアプリのバージョンです。
+AIが出題するクイズに正解しないと止まらない、Flutter製の目覚ましアプリです。
 
-# アプリの特徴
+## 主な機能
 
-他のアラームアプリと違いchatgpt生成された問題を解かないとアラームが止まりません。
+- 時刻を選ぶだけのシンプルなアラーム設定(過去の時刻を選ぶと自動的に翌日として予約)
+- アラーム発動中はクイズに正解するまで音が止まらない(戻るボタンも無効)
+- 設定画面にOpenAI APIキーを入力すると、AIが毎回新しい4択クイズを日本語で出題
+- キー未設定・オフライン時は計算問題に自動フォールバック(アラームを止められなくなる事故を防止)
+- 3回間違えると問題が切り替わり、選択肢の総当たりを防止
+- ホーム画面の「アラームをテスト」でいつでも動作確認可能
 
-## Getting Started
+## プラットフォーム別の挙動
 
-This project is a starting point for a Flutter application.
+|  | Android | iOS (iPhone) |
+|---|---|---|
+| アプリ終了中・スリープ中の発火 | ○ AlarmManagerで音まで鳴る | 通知のみ(1分間隔で5回) |
+| 発動時の表示 | フルスクリーン通知 | 通知をタップしてアプリを開くとクイズ画面へ |
 
-A few resources to get you started if this is your first Flutter project:
+iOSはOSの制約上、アプリが閉じている間にバックグラウンドで任意の音を鳴らし続けることができないため、通知でアプリを開いてもらう方式です。アプリを開いた瞬間にアラーム音が鳴り始め、クイズに正解するまで止まりません。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## セットアップ
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. `flutter pub get`
+2. `flutter run`
+3. (任意)アプリ内の設定画面(⚙)でOpenAI APIキー(`sk-...`)を入力するとAIクイズが有効になります。キーは端末内(SharedPreferences)にのみ保存されます。
+
+## ⚠️ 過去にコミットされたAPIキーについて
+
+以前のコミット履歴に `.env` ファイルとしてOpenAI APIキーが含まれていました。**このキーは漏洩済みとして、OpenAIのダッシュボード( https://platform.openai.com/api-keys )から必ず無効化(revoke)してください。**
+
+現在のアプリは `.env` を使用せず、設定画面から入力したキーを使う方式に変更済みです。`.env` は `.gitignore` に追加されており、今後コミットされることはありません。
